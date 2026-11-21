@@ -23,12 +23,34 @@ function App() {
   const [searchTarget, setSearchTarget] = useState(null);
   const [selectedFeature, setSelectedFeature] = useState(null);
 
-  /* ---------------- SOCKET LOGIC ---------------- */
+  /* ---------------- DATA FETCH & SOCKET LOGIC ---------------- */
   useEffect(() => {
-    console.log("Connecting to:", SOCKET_URL);
-    const socket = io(SOCKET_URL);
+    console.log("Connecting to backend:", SOCKET_URL);
+
+    // Initial HTTP fetch as fallback / immediate sync
+    fetch(`${SOCKET_URL}/api/geojson`)
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP status ${res.status}`);
+        return res.json();
+      })
+      .then((data) => {
+        if (data && Object.keys(data).length > 0) {
+          console.log("📥 GeoJSON HTTP Load:", Object.keys(data));
+          setLayers((prev) => ({ ...data, ...prev }));
+        }
+      })
+      .catch((err) => {
+        console.warn("REST sync notice:", err.message);
+      });
+
+    // Real-time socket listener
+    const socket = io(SOCKET_URL, {
+      transports: ["websocket", "polling"],
+      reconnectionAttempts: 5,
+    });
 
     socket.on("connect", () => console.log("✅ Socket Connected"));
+    socket.on("connect_error", (err) => console.warn("Socket connection error:", err.message));
     socket.on("geojson-update", (data) => {
       console.log("📥 GeoJSON Update Received:", Object.keys(data));
       setLayers(data);
@@ -90,6 +112,7 @@ function App() {
       <main className="dashboard-layout">
         <div className={`map-section ${mapTheme}-theme`}>
           <MapView
+            mapTheme={mapTheme}
             layers={filteredLayers}
             riskFilter={riskFilter}
             searchTarget={searchTarget}

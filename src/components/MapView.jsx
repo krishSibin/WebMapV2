@@ -3,6 +3,21 @@ import { MapContainer, TileLayer, GeoJSON, useMap, Popup } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
+// CARTO raster basemaps require an API key (free: https://carto.com/basemaps/apikey/)
+const CARTO_API_KEY = import.meta.env.VITE_CARTO_API_KEY || "cb1_33zk_1_4703e637faf231af39b89bc0";
+const CARTO_STYLES = { dark: "dark_all", light: "light_all" };
+const CARTO_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>';
+
+if (!CARTO_API_KEY) {
+    console.warn("VITE_CARTO_API_KEY is not set. Basemap tiles will show an 'API KEY REQUIRED' watermark.");
+}
+
+const getCartoTileUrl = (theme) => {
+    const style = CARTO_STYLES[theme] || CARTO_STYLES.dark;
+    const keyParam = CARTO_API_KEY ? `?key=${encodeURIComponent(CARTO_API_KEY)}` : "";
+    return `https://{s}.basemaps.cartocdn.com/rastertiles/${style}/{z}/{x}/{y}{r}.png${keyParam}`;
+};
+
 // Helper component to handle map movement
 const MapController = ({ searchTarget }) => {
     const map = useMap();
@@ -79,7 +94,7 @@ const OptimizedLayer = React.memo(({ name, data, riskFilter, getStyle, onSelect,
     );
 });
 
-const MapView = ({ layers, riskFilter, searchTarget, selectedFeature, onSelect, onSearchComplete }) => {
+const MapView = ({ mapTheme = "dark", layers, riskFilter, searchTarget, selectedFeature, onSelect, onSearchComplete }) => {
 
     const isFeatureMatch = (f1, f2) => {
         if (!f1 || !f2) return false;
@@ -158,7 +173,12 @@ const MapView = ({ layers, riskFilter, searchTarget, selectedFeature, onSelect, 
             zoomDelta={0.5}
             wheelPxPerZoomLevel={120}
         >
-            <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
+            <TileLayer
+                url={getCartoTileUrl(mapTheme)}
+                attribution={CARTO_ATTRIBUTION}
+                subdomains="abcd"
+                maxZoom={20}
+            />
 
             <MapController searchTarget={searchTarget} />
 
